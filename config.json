@@ -19,8 +19,8 @@
       "jarakHariMinimumTransaksi": 7
     },
     "jeda": {
-      "transaksi": { "minDetik": 8, "maksDetik": 20 },
-      "cekKuota": { "minDetik": 5, "maksDetik": 15 }
+      "transaksi": { "minDetik": 5, "maksDetik": 10 },
+      "cekKuota": { "minDetik": 5, "maksDetik": 10 }
     },
     "retry": {
       "jumlah": 2,
