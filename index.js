@@ -928,12 +928,36 @@ async function runSinkronisasiLaporan(token, profile) {
     const startTime = Date.now();
     console.log(chalk.bold.yellow("\n--- [Laporan] Sinkronisasi Data Transaksi ---"));
     try {
-        const { startDate, endDate } = await ui.promptPilihRentangTanggal();
+        const { periodePilihan } = await inquirer.prompt([
+            {
+                type: 'list',
+                name: 'periodePilihan',
+                message: 'Pilih periode laporan untuk sinkronisasi:',
+                choices: [
+                    { name: 'Hari Ini', value: 'hariIni' },
+                    { name: 'Pilih Rentang Tanggal Manual', value: 'rentang' },
+                ],
+            },
+        ]);
+
+        let startDate, endDate;
+
+        if (periodePilihan === 'hariIni') {
+            startDate = new Date();
+            endDate = new Date();
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+            console.log(chalk.blue(`\nMenjalankan sinkronisasi untuk hari ini: ${startDate.toLocaleDateString('id-ID')}`));
+        } else {
+            const promptedDates = await ui.promptPilihRentangTanggal();
+            startDate = promptedDates.startDate;
+            endDate = promptedDates.endDate;
+        }
+        
         const tglMulai = startDate.toISOString().split('T')[0];
         const tglSelesai = endDate.toISOString().split('T')[0];
         
         console.log(chalk.blue("\n1. Membaca data Master Pelanggan lokal..."));
-        // Langkah 1: Baca Master Pelanggan di awal
         let dataPelanggan = excel.bacaFile(config.filePaths.masterPelanggan) || [];
         if(dataPelanggan.length === 0) {
             console.log(chalk.yellow("   > Peringatan: File Master Pelanggan kosong atau tidak ditemukan."));
@@ -1005,22 +1029,18 @@ async function runSinkronisasiLaporan(token, profile) {
             console.log(chalk.green.bold("\n\n✅ Sinkronisasi log selesai. Log lokal Anda sudah sesuai dengan data server."));
         }
         
-        // --- BLOK PERBAIKAN DIMULAI DI SINI ---
-        
         console.log(chalk.blue("\n4. Memperbarui 'tanggal_terakhir_transaksi' di Master Pelanggan..."));
         
-        // Langkah 3: Buat peta transaksi terakhir dari log yang sudah lengkap
         const latestTransactionMap = new Map();
         for(const trx of localData){
             if(trx.noKTP && trx.status?.startsWith('Sukses')){
                 const nik = String(trx.noKTP);
-                // Parsing tanggal, mengakomodasi format yang berbeda
                 const trxDateStr = String(trx.tanggal_transaksi).split(',')[0].split(' ')[0];
                 const parts = trxDateStr.split('/');
                 let trxDate;
                 if(parts.length === 3) { // Format dd/MM/yyyy
                     trxDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-                } else { // Coba parsing langsung jika formatnya beda
+                } else { 
                     trxDate = new Date(trx.tanggal_transaksi);
                 }
 
@@ -1033,7 +1053,6 @@ async function runSinkronisasiLaporan(token, profile) {
             }
         }
         
-        // Langkah 4: Perbarui data pelanggan di memori
         let masterPelangganUpdated = false;
         for(const pelanggan of dataPelanggan){
             const nik = String(pelanggan.noKTP);
@@ -1044,14 +1063,12 @@ async function runSinkronisasiLaporan(token, profile) {
             }
         }
         
-        // Langkah 5: Tulis kembali jika ada perubahan
         if(masterPelangganUpdated){
             excel.tulisLog(config.filePaths.masterPelanggan, xlsx.utils.book_new(), "Pelanggan", dataPelanggan);
             console.log(chalk.green.bold("✅ Master Pelanggan berhasil diperbarui dengan tanggal transaksi terbaru."));
         } else {
             console.log(chalk.green("   > Master Pelanggan sudah sinkron, tidak ada pembaruan tanggal transaksi."));
         }
-        // --- BLOK PERBAIKAN SELESAI ---
 
     } catch (error) {
         console.log(chalk.red.bold(`\n❌ Terjadi kesalahan saat sinkronisasi: ${error.message}`));
@@ -1060,7 +1077,7 @@ async function runSinkronisasiLaporan(token, profile) {
     }
 }
 
-async function runValidasiRencana(token, profile) { // Parameter token & profile tetap ada untuk masa depan
+async function runValidasiRencana(token, profile) { 
     const startTime = Date.now();
     console.log(chalk.bold.yellow("\n--- [Utilitas] Analisis Kelayakan Rencana (Validasi Lokal) ---"));
     
